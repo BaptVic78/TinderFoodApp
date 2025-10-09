@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Founder</title>
+  <meta name="description" content="Founder — ta web‑app d’essai en PWA." />
+  <meta name="theme-color" content="#FF6A00" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <style>
+    :root { --bg1:#ffffff; --fg:#111; --grad1:#FF6A00; --grad2:#FF3366; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: var(--bg1); color: var(--fg);}
+    header {
+      padding: 24px; text-align:center; color:white;
+      background: linear-gradient(135deg, var(--grad1), var(--grad2));
+    }
+    header h1 { margin: 0; font-size: 28px; letter-spacing: 0.5px; }
+    main { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+    .card {
+      border: 1px solid #eee; border-radius: 16px; padding: 20px; box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
+    .actions { display:flex; gap:12px; flex-wrap: wrap; margin-top: 16px;}
+    button {
+      border: 0; padding: 12px 16px; border-radius: 12px; cursor: pointer;
+      background: #111; color: white; font-weight: 600;
+    }
+    .secondary { background: #f2f2f2; color:#111; }
+    footer { text-align:center; padding: 24px; color:#666; font-size: 14px; }
+    .logo {
+      width: 64px; height: 64px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--grad1), var(--grad2));
+      display:inline-flex; align-items:center; justify-content:center; color: white; font-weight: 900; font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .tip { font-size: 14px; color:#666; margin-top: 8px;}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">F</div>
+    <h1>Founder</h1>
+    <div>Prototype PWA — installable sur iOS & Android</div>
+  </header>
+  <main>
+    <div class="card">
+      <p>Bienvenue ! Ceci est une version minimale de <strong>Founder</strong> en <em>Progressive Web App</em>. Tu peux l’ajouter à l’écran d’accueil comme une vraie app.</p>
+
+      <div class="actions">
+        <button id="installBtn" hidden>Installer l’app</button>
+        <button id="cacheBtn" class="secondary">Mettre en cache pour hors-ligne</button>
+      </div>
+
+      <p class="tip">iPhone : Safari → Partager → <em>Ajouter à l’écran d’accueil</em>.<br/>
+      Android : Chrome proposera “Installer l’application” automatiquement (ou menu ⋮ → Installer l’app).</p>
+    </div>
+  </main>
+  <footer>
+    <div>&copy; 2025 Founder</div>
+  </footer>
+
+  <script>
+    // Service worker registration
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      });
+    }
+
+    // Optional "Add to Home" for Android
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.hidden = false;
+    });
+
+    installBtn?.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn.hidden = true;
+      console.log('Install outcome:', outcome);
+    });
+
+    // Cache warm-up button (calls a no-op fetch to trigger SW install)
+    const cacheBtn = document.getElementById('cacheBtn');
+    cacheBtn?.addEventListener('click', async () => {
+      try {
+        await fetch('./'); // touch the network to ensure SW is active
+        alert('Contenu mis en cache. Essaie de passer hors ligne !');
+      } catch (e) {
+        alert('Impossible de mettre en cache pour le moment.');
+      }
+    });
+  </script>
+</body>
+</html>
