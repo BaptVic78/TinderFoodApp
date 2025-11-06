@@ -38,6 +38,14 @@
       margin-bottom: 8px;
     }
     .tip { font-size: 14px; color:#666; margin-top: 8px;}
+
+    /* === Ajouts pour le duo d’images === */
+    .pair { display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin:16px 0; }
+    .dish { position:relative; border-radius:16px; overflow:hidden; border:2px solid transparent; cursor: pointer; }
+    .dish.selected { border-color:#111; }
+    .dish img { width:100%; height:260px; object-fit:cover; display:block; user-select:none; -webkit-user-drag:none; }
+    #chooserCard.shake { animation: shake 240ms; }
+    @keyframes shake { 25% { transform: translateX(-4px) } 75% { transform: translateX(4px) } }
   </style>
 </head>
 <body>
@@ -59,7 +67,27 @@
       <p class="tip">iPhone : Safari → Partager → <em>Ajouter à l’écran d’accueil</em>.<br/>
       Android : Chrome proposera “Installer l’application” automatiquement (ou menu ⋮ → Installer l’app).</p>
     </div>
+
+    <!-- === Bloc choix 2 images + actions === -->
+    <div class="card" id="chooserCard">
+      <h3 style="margin-top:0">Choisis ton plat 🍽️</h3>
+
+      <div id="pair" class="pair">
+        <div class="dish" data-side="left"><img id="imgLeft" alt="Plat gauche" /></div>
+        <div class="dish" data-side="right"><img id="imgRight" alt="Plat droit" /></div>
+      </div>
+
+      <div class="actions">
+        <button id="chooseBtn">J’ai choisi</button>
+        <button id="skipBtn" class="secondary">Passer</button>
+        <button id="resetBtn" class="secondary">Réinitialiser</button>
+      </div>
+
+      <p class="tip">Astuce : swipe vers la gauche = plat gauche, vers la droite = plat droit. Tu peux aussi toucher un plat pour le sélectionner, puis valider.</p>
+      <p class="tip" id="progress"></p>
+    </div>
   </main>
+
   <footer>
     <div>&copy; 2025 Founder</div>
   </footer>
@@ -101,5 +129,8 @@
       }
     });
   </script>
+
+  <!-- Logique du duel d'images -->
+  <script src="app.js"></script>
 </body>
 </html>
