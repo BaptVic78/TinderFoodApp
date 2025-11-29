@@ -1,129 +1,188 @@
 // =======================
-// Tinder Food — app.js (version avec swipe animé)
+// Tinder Food — app.js (Connecté au serveur Node MySQL)
 // =======================
 
-// 1) Liste d'images avec descriptions
-const IMAGES = [
-  { src: "images/sushi.jpeg", desc: "Assortiment de sushis frais et makis variés 🍣" },
-  { src: "images/indien.jpg", desc: "Curry de poulet épicé accompagné de naan 🥘" },
-  { src: "images/pizza.jpg", desc: "Pizza margherita au feu de bois avec mozzarella fondante 🍕" },
-  { src: "images/francais.jpg", desc: "Plats français divers et variés (champignons, escargot, boeuf..." },
-  { src: "images/padthai.jpg", desc: "Pad Thaï aux crevettes, nouilles de riz et cacahuètes 🥢" }
-];
-
-// 2) Sélecteurs
+// Sélecteurs du DOM
 const imgLeft = document.getElementById("imgLeft");
 const imgRight = document.getElementById("imgRight");
 const descLeft = document.getElementById("descLeft");
 const descRight = document.getElementById("descRight");
-const chooseBtn = document.getElementById("chooseBtn");
-const skipBtn = document.getElementById("skipBtn");
-const resetBtn = document.getElementById("resetBtn");
-const cardEl = document.getElementById("chooserCard");
-const pairEl = document.getElementById("pair");
 const progressEl = document.getElementById("progress");
+const chooseBtn = document.getElementById("chooseBtn");
+const resetBtn = document.getElementById("resetBtn");
+const pair = document.getElementById("pair");
 
-let champion, challenger;
-let nextIndex = 0;
-let currentChoice = null;
+const matchScreen = document.getElementById("matchScreen");
+const winnerImage = document.getElementById("winnerImage");
+const winnerText = document.getElementById("winnerText");
+const closeMatch = document.getElementById("closeMatch");
 
-// === Initialisation ===
+// Variables globales
+let IMAGES = []; 
+let champion;
+let challenger;
+let nextIndex = 2;
+let finished = false;
+
+function testImage(url) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = url;
+    // Si l'image charge bien, on renvoie TRUE
+    img.onload = () => resolve(true);
+    // Si l'image plante (404), on renvoie FALSE
+    img.onerror = () => resolve(false);
+  });
+}
+
+// ==========================================
+// REMPLACE TOUTE LA FONCTION initGame PAR CELLE-CI
+// ==========================================
+async function initGame() {
+  try {
+    progressEl.textContent = "Chargement et nettoyage...";
+    
+    // 1. On récupère TOUT depuis le serveur
+    const response = await fetch('/api/dishes'); 
+    if (!response.ok) throw new Error("Erreur réseau");
+    
+    const rawData = await response.json();
+
+    // ---------------------------------------------------------
+    // ETAPE 2 : On supprime les doublons d'URL (NOUVEAU)
+    // ---------------------------------------------------------
+    const uniqueData = [];
+    const seenUrls = new Set(); // Une "boite" pour noter les URLs déjà vues
+
+    for (const item of rawData) {
+      // Si on n'a jamais vu cette URL, on garde le resto
+      if (!seenUrls.has(item.src)) {
+        seenUrls.add(item.src);
+        uniqueData.push(item);
+      }
+      // Sinon, on ignore (c'est un doublon d'image)
+    }
+    console.log(`Doublons supprimés : ${rawData.length - uniqueData.length}`);
+
+    // ---------------------------------------------------------
+    // ETAPE 3 : On teste les liens (Comme avant)
+    // ---------------------------------------------------------
+    const validImagesPromises = uniqueData.map(async (item) => {
+        const isValid = await testImage(item.src);
+        return isValid ? item : null;
+    });
+
+    const results = await Promise.all(validImagesPromises);
+    IMAGES = results.filter(item => item !== null);
+
+    console.log(`Final : ${IMAGES.length} restaurants uniques et valides.`);
+
+    // 4. Sécurité : est-ce qu'il en reste assez ?
+    if (IMAGES.length < 2) {
+      progressEl.textContent = "Pas assez de photos uniques trouvées !";
+      return;
+    }
+
+    // 5. Initialisation du tournoi
+    champion = IMAGES[0];
+    challenger = IMAGES[1];
+    nextIndex = 2;
+    
+    showImages();
+
+  } catch (error) {
+    console.error("Erreur :", error);
+    progressEl.innerHTML = "Erreur de chargement.";
+  }
+}
+
+// 2. Affiche les images actuelles
 function showImages() {
+  if (!champion || !challenger) return;
+
   imgLeft.src = champion.src;
-  descLeft.textContent = champion.desc;
+  descLeft.textContent = champion.desc; // Attention: assure-toi que ta colonne s'appelle bien 'description' dans la DB
+  
   imgRight.src = challenger.src;
   descRight.textContent = challenger.desc;
+  
+  progressEl.textContent = `Duel ${nextIndex - 1}/${IMAGES.length - 1}`;
 }
-function updateProgress() {
-  const total = IMAGES.length - 1;
-  const duelNum = Math.min(nextIndex, total);
-  progressEl.textContent = `Duel ${duelNum}/${total}`;
-}
-function initTournament() {
-  champion = IMAGES[0];
-  challenger = IMAGES[1];
-  nextIndex = 2;
-  showImages();
-  updateProgress();
-}
-initTournament();
 
-// === Animation de swipe ===
-function animateSwipe(direction) {
-  const chosen = direction === "left" ? document.querySelector('.dish[data-side="left"]')
-                                     : document.querySelector('.dish[data-side="right"]');
-  const other = direction === "left" ? document.querySelector('.dish[data-side="right"]')
-                                    : document.querySelector('.dish[data-side="left"]');
+// 3. Animation du choix (Swipe)
+function animateChoice(side) {
+  const chosen = document.querySelector(`.dish[data-side="${side}"]`);
+  chosen.classList.add(side === "left" ? "fly-over-right" : "fly-over-left");
 
-  chosen.classList.add(direction === "left" ? "swipe-left" : "swipe-right");
-
-  // petite attente avant de charger le prochain duel
   setTimeout(() => {
-    chosen.classList.remove("swipe-left", "swipe-right");
-    nextDuel(direction);
+    chosen.classList.remove("fly-over-right", "fly-over-left");
+    nextDuel(side);
   }, 400);
 }
 
-// === Swipe logique ===
-function nextDuel(direction) {
-  champion = direction === "left" ? champion : challenger;
-
+// 4. Logique du tournoi
+function nextDuel(side) {
+  champion = side === "left" ? champion : challenger;
+  
   if (nextIndex < IMAGES.length) {
     challenger = IMAGES[nextIndex++];
     showImages();
-    updateProgress();
   } else {
-    imgRight.remove();
-    descRight.remove();
-    skipBtn.disabled = true;
-    chooseBtn.disabled = false; // on peut maintenant choisir le gagnant final
-    progressEl.innerHTML = `Gagnant potentiel <br><strong>${champion.desc}</strong>`;
+    endTournament();
   }
 }
 
-// === Swipe tactile ===
-let startX = null;
-pairEl.addEventListener("touchstart", (e) => {
-  startX = e.touches[0].clientX;
+// 5. Fin du jeu
+function endTournament() {
+  finished = true;
+  progressEl.textContent = "C’est un match ❤️";
+  chooseBtn.disabled = true;
+  showMatchScreen();
+}
+
+// 6. Affichage écran final + Confettis
+function showMatchScreen() {
+  winnerImage.src = champion.src;
+  winnerText.innerHTML = `C’est un match avec <br><span style="color:#ff3366;">${champion.desc}</span> !`;
+  matchScreen.classList.add("active");
+  launchConfetti();
+}
+
+function launchConfetti() {
+  if (typeof confetti === "function") {
+    const duration = 3 * 1000;
+    const end = Date.now() + duration;
+    (function frame() {
+      confetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0 } });
+      confetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1 } });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
+  }
+}
+
+// === EVENT LISTENERS ===
+closeMatch.addEventListener("click", () => {
+  matchScreen.classList.remove("active");
+  location.reload(); 
 });
-pairEl.addEventListener("touchend", (e) => {
+
+document.querySelector('.dish[data-side="left"]').addEventListener('click', () => { if (!finished) animateChoice('left'); });
+document.querySelector('.dish[data-side="right"]').addEventListener('click', () => { if (!finished) animateChoice('right'); });
+
+// Swipe Tactile
+let startX = null;
+pair.addEventListener("touchstart", e => startX = e.touches[0].clientX);
+pair.addEventListener("touchend", e => {
   if (startX === null) return;
   const dx = e.changedTouches[0].clientX - startX;
+  if (Math.abs(dx) < 60) return;
+  if (dx < 0) animateChoice("left");
+  else animateChoice("right");
   startX = null;
-  if (Math.abs(dx) < 50) return; // petit geste ignoré
-  if (dx < 0) animateSwipe("left");
-  else animateSwipe("right");
 });
 
-// === Swipe souris ===
-let mouseStart = null;
-pairEl.addEventListener("mousedown", (e) => (mouseStart = e.clientX));
-window.addEventListener("mouseup", (e) => {
-  if (mouseStart === null) return;
-  const dx = e.clientX - mouseStart;
-  mouseStart = null;
-  if (Math.abs(dx) < 80) return;
-  if (dx < 0) animateSwipe("left");
-  else animateSwipe("right");
-});
-
-// === Bouton "J'ai choisi " : choix final ===
-chooseBtn.addEventListener("click", () => {
-  imgRight.remove();
-  descRight.remove();
-  skipBtn.disabled = true;
-  chooseBtn.disabled = true;
-  progressEl.innerHTML = `Ton plat préféré est :<br><strong>${champion.desc}</strong>`;
-});
-
-// === Bouton "Passer" ===
-skipBtn.addEventListener("click", () => {
-  if (nextIndex < IMAGES.length) {
-    challenger = IMAGES[nextIndex++];
-    showImages();
-    updateProgress();
-  }
-});
-
-// === Bouton "Réinitialiser" ===
+chooseBtn.addEventListener("click", endTournament); 
 resetBtn.addEventListener("click", () => location.reload());
+
+// === LANCEMENT ===
+initGame();
