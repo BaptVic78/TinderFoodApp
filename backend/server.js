@@ -33,22 +33,14 @@ app.get('/api/dishes', (req, res) => {
     // 1. La requête SQL adaptée à ta table 'restaurants'
     // On sélectionne le nom, le type de nourriture et l'url de la photo
     // On ajoute "WHERE photo_url IS NOT NULL" pour éviter les bugs d'affichage si un resto n'a pas de photo
-    const sql = "SELECT name, Food, photo_url FROM restaurants WHERE photo_url IS NOT NULL"; 
+    const sql = "SELECT * FROM restaurants WHERE photo_url IS NOT NULL"; 
     
     db.query(sql, (err, results) => {
         if (err) {
             console.error("Erreur SQL :", err);
             return res.status(500).send("Erreur serveur");
         }
-
-        // 2. Transformation des données pour le Frontend
-        // Le frontend attend { src: "...", desc: "..." }
-        const formattedResults = results.map(row => ({
-            src: row.photo_url,  // On mappe ta colonne 'photo_url' vers 'src'
-            desc: `${row.name} - ${row.Food}` // On combine Nom + Type (ex: "Sushi Shop - Japonais")
-        }));
-
-        res.json(formattedResults);
+        res.json(results);
     });
 });
 

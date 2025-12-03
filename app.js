@@ -38,61 +38,29 @@ function testImage(url) {
 // ==========================================
 // REMPLACE TOUTE LA FONCTION initGame PAR CELLE-CI
 // ==========================================
+// app.js (Version simplifiée après nettoyage BDD)
+
 async function initGame() {
   try {
-    progressEl.textContent = "Chargement et nettoyage...";
+    progressEl.textContent = "Chargement...";
     
-    // 1. On récupère TOUT depuis le serveur
+    // 1. On récupère la liste (qui est maintenant propre en BDD)
     const response = await fetch('/api/dishes'); 
-    if (!response.ok) throw new Error("Erreur réseau");
-    
     const rawData = await response.json();
+    
+    // 2. On peut mélanger direct
+    IMAGES = rawData.sort(() => Math.random() - 0.5);
 
-    // ---------------------------------------------------------
-    // ETAPE 2 : On supprime les doublons d'URL (NOUVEAU)
-    // ---------------------------------------------------------
-    const uniqueData = [];
-    const seenUrls = new Set(); // Une "boite" pour noter les URLs déjà vues
-
-    for (const item of rawData) {
-      // Si on n'a jamais vu cette URL, on garde le resto
-      if (!seenUrls.has(item.src)) {
-        seenUrls.add(item.src);
-        uniqueData.push(item);
-      }
-      // Sinon, on ignore (c'est un doublon d'image)
-    }
-    console.log(`Doublons supprimés : ${rawData.length - uniqueData.length}`);
-
-    // ---------------------------------------------------------
-    // ETAPE 3 : On teste les liens (Comme avant)
-    // ---------------------------------------------------------
-    const validImagesPromises = uniqueData.map(async (item) => {
-        const isValid = await testImage(item.src);
-        return isValid ? item : null;
-    });
-
-    const results = await Promise.all(validImagesPromises);
-    IMAGES = results.filter(item => item !== null);
-
-    console.log(`Final : ${IMAGES.length} restaurants uniques et valides.`);
-
-    // 4. Sécurité : est-ce qu'il en reste assez ?
-    if (IMAGES.length < 2) {
-      progressEl.textContent = "Pas assez de photos uniques trouvées !";
-      return;
-    }
-
-    // 5. Initialisation du tournoi
+    // 3. C'est tout !
+    console.log(`${IMAGES.length} restaurants chargés.`);
+    
     champion = IMAGES[0];
     challenger = IMAGES[1];
     nextIndex = 2;
-    
     showImages();
 
   } catch (error) {
-    console.error("Erreur :", error);
-    progressEl.innerHTML = "Erreur de chargement.";
+    console.error(error);
   }
 }
 
@@ -100,11 +68,20 @@ async function initGame() {
 function showImages() {
   if (!champion || !challenger) return;
 
-  imgLeft.src = champion.src;
-  descLeft.textContent = champion.desc; // Attention: assure-toi que ta colonne s'appelle bien 'description' dans la DB
-  
-  imgRight.src = challenger.src;
-  descRight.textContent = challenger.desc;
+  imgLeft.src = champion.photo_url;
+  imgRight.src = challenger.photo_url;
+
+  descLeft.innerHTML = `
+      <strong style="font-size:1.2em;">${champion.name}</strong><br>
+      <span style="color:#666;">${champion.Food}</span><br>
+      📍 ${champion.Zipcode} Paris
+  `;
+
+  descRight.innerHTML = `
+      <strong style="font-size:1.2em;">${challenger.name}</strong><br>
+      <span style="color:#666;">${challenger.Food}</span><br>
+      📍 ${challenger.Zipcode} Paris
+  `;
   
   progressEl.textContent = `Duel ${nextIndex - 1}/${IMAGES.length - 1}`;
 }
@@ -142,7 +119,7 @@ function endTournament() {
 
 // 6. Affichage écran final + Confettis
 function showMatchScreen() {
-  winnerImage.src = champion.src;
+  winnerImage.src = champion.photo_url;
   winnerText.innerHTML = `C’est un match avec <br><span style="color:#ff3366;">${champion.desc}</span> !`;
   matchScreen.classList.add("active");
   launchConfetti();
