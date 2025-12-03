@@ -73,10 +73,86 @@
     .dish-desc {
       text-align: center;
       margin-top: 10px;
-      font-size: 15px;
-      font-weight: 500;
+      font-size: 14px;
       color: #444;
+      /* Permet de scroller si y'a trop d'infos */
+      max-height: 140px; 
+      overflow-y: auto;
+      padding-bottom: 5px;
     }
+
+    .badges {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+
+    .badge {
+      background: #eee;
+      border-radius: 12px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #555;
+    }
+
+    .infos a {
+      color: #ff3366;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .info-btn {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: white;
+      border: none;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-weight: bold;
+      color: #333;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    .full-details-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 20px;
+      box-sizing: border-box;
+      overflow-y: auto; /* Permet de scroller si y'a trop d'infos */
+      transform: translateY(100%); /* Caché en bas */
+      transition: transform 0.3s ease-in-out;
+      z-index: 5;
+      text-align: left;
+      font-size: 13px;
+      color: #333;
+    }
+
+    /* La classe qu'on ajoute pour afficher le panneau */
+    .full-details-overlay.visible {
+      transform: translateY(0); /* On le remonte */
+    }
+
+    .detail-row {
+      margin-bottom: 6px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 4px;
+    }
+    .detail-label { font-weight: bold; color: #555; }
 
     .dish.selected {
       border-color: var(--grad2);
@@ -92,6 +168,23 @@
     .dish.fly-over-right {
       transform: translateX(100%) scale(1.05) rotate(10deg);
       z-index: 3;
+    }
+
+    /* Le conteneur de l'image doit être relatif pour qu'on puisse positionner des choses dessus */
+    .dish-image-container {
+      position: relative;
+      width: 100%;
+      height: 280px;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    /* L'image elle-même */
+    .dish-image-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     button {

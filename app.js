@@ -1,5 +1,5 @@
 // =======================
-// Tinder Food — app.js (Connecté au serveur Node MySQL)
+// Tinder Food — app.js (CORRIGÉ)
 // =======================
 
 // Sélecteurs du DOM
@@ -24,34 +24,17 @@ let challenger;
 let nextIndex = 2;
 let finished = false;
 
-function testImage(url) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = url;
-    // Si l'image charge bien, on renvoie TRUE
-    img.onload = () => resolve(true);
-    // Si l'image plante (404), on renvoie FALSE
-    img.onerror = () => resolve(false);
-  });
-}
-
-// ==========================================
-// REMPLACE TOUTE LA FONCTION initGame PAR CELLE-CI
-// ==========================================
-// app.js (Version simplifiée après nettoyage BDD)
-
+// === INITIALISATION ===
 async function initGame() {
   try {
     progressEl.textContent = "Chargement...";
     
-    // 1. On récupère la liste (qui est maintenant propre en BDD)
     const response = await fetch('/api/dishes'); 
     const rawData = await response.json();
     
-    // 2. On peut mélanger direct
+    // Mélange
     IMAGES = rawData.sort(() => Math.random() - 0.5);
 
-    // 3. C'est tout !
     console.log(`${IMAGES.length} restaurants chargés.`);
     
     champion = IMAGES[0];
@@ -61,32 +44,107 @@ async function initGame() {
 
   } catch (error) {
     console.error(error);
+    progressEl.textContent = "Erreur chargement API";
   }
 }
 
-// 2. Affiche les images actuelles
+// === FONCTIONS D'AFFICHAGE (Infos & HTML) ===
+
+function isTrue(value) {
+    if (!value) return false;
+    const v = String(value).toLowerCase();
+    return v === "1" || v === "true" || v === "yes" || v === "oui";
+}
+
+function generateFullDetailsHtml(resto) {
+    const details = [
+        { label: "📍 Adresse", val: `${resto.Zipcode || ""} Paris` },
+        { label: "📞 Téléphone", val: resto.Phone_number },
+        { label: "🌐 Site Web", val: resto.Website ? `<a href="${resto.Website}" target="_blank">Voir le site</a>` : null },
+        { label: "🕒 Horaires", val: resto.Opening_hours },
+        { label: "⭐ Michelin", val: resto.Etoiles_michelin ? "Oui (" + resto.Etoiles_michelin + " étoiles)" : "Non" },
+        { label: "🌱 Végétarien", val: isTrue(resto.Vegetarian) ? "Oui" : "Non" },
+        { label: "🥦 Vegan", val: isTrue(resto.Vegan) ? "Oui" : "Non" },
+        { label: "🛵 Livraison", val: isTrue(resto.Delivery) ? "Oui" : "Non" },
+        { label: "🛍️ A emporter", val: isTrue(resto.Take_away) ? "Oui" : "Non" },
+        { label: "♿ Accès PMR", val: isTrue(resto.Disabled_access) ? "Oui" : "Non" },
+        { label: "🚬 Zone fumeur", val: isTrue(resto.Smoking_area) ? "Oui" : "Non" },
+        { label: "🏢 Siret", val: resto.Siret },
+        { label: "🗺️ Quartier", val: resto.Disctrict }, 
+        { label: "🍔 Type", val: resto.Food }
+    ];
+
+    let html = `<h3>${resto.name}</h3>`;
+    
+    details.forEach(item => {
+        if (item.val && item.val !== "0") {
+            html += `
+            <div class="detail-row">
+                <span class="detail-label">${item.label} :</span> 
+                <span>${item.val}</span>
+            </div>`;
+        }
+    });
+
+    html += `<div style="text-align:center; margin-top:20px; color:#ff3366; font-size:0.9em; font-weight:bold; cursor:pointer;">▼ Fermer les infos</div>`;
+
+    return html;
+}
+
 function showImages() {
   if (!champion || !challenger) return;
 
-  imgLeft.src = champion.photo_url;
-  imgRight.src = challenger.photo_url;
-
-  descLeft.innerHTML = `
-      <strong style="font-size:1.2em;">${champion.name}</strong><br>
-      <span style="color:#666;">${champion.Food}</span><br>
-      📍 ${champion.Zipcode} Paris
+  // --- GAUCHE ---
+  const leftContainer = document.querySelector('.dish[data-side="left"]');
+  leftContainer.innerHTML = `
+      <div class="dish-image-container">
+          <img src="${champion.photo_url}" alt="${champion.name}">
+          
+          <div id="details-left" class="full-details-overlay" onclick="toggleDetails('left', event)">
+              ${generateFullDetailsHtml(champion)}
+          </div>
+          
+          <button class="info-btn" onclick="toggleDetails('left', event)">i</button>
+      </div>
+      <div class="dish-desc">
+          <strong>${champion.name}</strong><br>
+          <span style="color:#666">${champion.Food}</span>
+      </div>
   `;
 
-  descRight.innerHTML = `
-      <strong style="font-size:1.2em;">${challenger.name}</strong><br>
-      <span style="color:#666;">${challenger.Food}</span><br>
-      📍 ${challenger.Zipcode} Paris
+  // --- DROITE ---
+  const rightContainer = document.querySelector('.dish[data-side="right"]');
+  rightContainer.innerHTML = `
+      <div class="dish-image-container">
+          <img src="${challenger.photo_url}" alt="${challenger.name}">
+          
+          <div id="details-right" class="full-details-overlay" onclick="toggleDetails('right', event)">
+              ${generateFullDetailsHtml(challenger)}
+          </div>
+          
+          <button class="info-btn" onclick="toggleDetails('right', event)">i</button>
+      </div>
+      <div class="dish-desc">
+          <strong>${challenger.name}</strong><br>
+          <span style="color:#666">${challenger.Food}</span>
+      </div>
   `;
   
   progressEl.textContent = `Duel ${nextIndex - 1}/${IMAGES.length - 1}`;
 }
 
-// 3. Animation du choix (Swipe)
+// Fonction corrigée : Gestion du clic sur le bouton Info
+function toggleDetails(side, event) {
+    // CORRECTION ICI : "event" (et pas envent)
+    if (event) event.stopPropagation(); 
+
+    const overlay = document.getElementById(`details-${side}`);
+    overlay.classList.toggle('visible');
+}
+
+// === LOGIQUE DU JEU ===
+
+// CORRECTION : J'ai remis cette fonction qui manquait !
 function animateChoice(side) {
   const chosen = document.querySelector(`.dish[data-side="${side}"]`);
   chosen.classList.add(side === "left" ? "fly-over-right" : "fly-over-left");
@@ -97,7 +155,6 @@ function animateChoice(side) {
   }, 400);
 }
 
-// 4. Logique du tournoi
 function nextDuel(side) {
   champion = side === "left" ? champion : challenger;
   
@@ -109,7 +166,6 @@ function nextDuel(side) {
   }
 }
 
-// 5. Fin du jeu
 function endTournament() {
   finished = true;
   progressEl.textContent = "C’est un match ❤️";
@@ -117,10 +173,9 @@ function endTournament() {
   showMatchScreen();
 }
 
-// 6. Affichage écran final + Confettis
 function showMatchScreen() {
   winnerImage.src = champion.photo_url;
-  winnerText.innerHTML = `C’est un match avec <br><span style="color:#ff3366;">${champion.desc}</span> !`;
+  winnerText.innerHTML = `C’est un match avec <br><span style="color:#ff3366;">${champion.name}</span> !`;
   matchScreen.classList.add("active");
   launchConfetti();
 }
@@ -143,6 +198,8 @@ closeMatch.addEventListener("click", () => {
   location.reload(); 
 });
 
+// Ces écouteurs gèrent le clic sur la photo (Vote)
+// Grâce à stopPropagation() dans toggleDetails, le clic sur "i" ne déclenche pas ça.
 document.querySelector('.dish[data-side="left"]').addEventListener('click', () => { if (!finished) animateChoice('left'); });
 document.querySelector('.dish[data-side="right"]').addEventListener('click', () => { if (!finished) animateChoice('right'); });
 
