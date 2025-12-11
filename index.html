@@ -19,6 +19,7 @@
       overflow-x: hidden;
     }
 
+    /* HEADER */
     header {
       background: linear-gradient(135deg, var(--grad1), var(--grad2));
       color: #fff;
@@ -28,10 +29,10 @@
       border-bottom-right-radius: 40px;
       box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15);
     }
-
     header h1 { font-size: 38px; margin: 0; font-weight: 700; }
     header h2 { font-weight: 400; opacity: 0.9; margin-top: 10px; font-size: 20px; }
 
+    /* LAYOUT */
     main {
       max-width: 900px;
       margin: -50px auto 60px;
@@ -54,33 +55,39 @@
       position: relative;
     }
 
+    /* RESTAURANT CARD */
     .dish {
       position: relative;
       border-radius: 20px;
       overflow: hidden;
       border: 3px solid transparent;
       cursor: pointer;
-      transition: transform 0.4s ease, opacity 0.4s ease, border-color 0.2s ease;
+      transition: transform 0.4s ease;
     }
-
-    .dish img {
+    .dish-image-container {
+      position: relative;
       width: 100%;
       height: 280px;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .dish-image-container img {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
       display: block;
     }
-
     .dish-desc {
       text-align: center;
       margin-top: 10px;
       font-size: 14px;
       color: #444;
-      /* Permet de scroller si y'a trop d'infos */
       max-height: 140px; 
       overflow-y: auto;
       padding-bottom: 5px;
     }
 
+    /* BADGES & INFOS */
     .badges {
       display: flex;
       justify-content: center;
@@ -88,7 +95,6 @@
       flex-wrap: wrap;
       margin: 8px 0;
     }
-
     .badge {
       background: #eee;
       border-radius: 12px;
@@ -97,102 +103,66 @@
       font-weight: 600;
       color: #555;
     }
-
     .infos a {
       color: #ff3366;
       text-decoration: none;
       font-weight: 600;
     }
 
+    /* BOUTONS SUR L'IMAGE */
     .info-btn {
       position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: white;
-      border: none;
-      width: 30px;
-      height: 30px;
+      bottom: 10px; right: 10px;
+      background: white; border: none;
+      width: 30px; height: 30px;
       border-radius: 50%;
-      font-weight: bold;
-      color: #333;
+      font-weight: bold; color: #333;
       box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-      cursor: pointer;
-      z-index: 10;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      cursor: pointer; z-index: 10;
+      display: flex; align-items: center; justify-content: center;
       font-size: 16px;
     }
-
-    .full-details-overlay {
+    .like-btn {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 20px;
-      box-sizing: border-box;
-      overflow-y: auto; /* Permet de scroller si y'a trop d'infos */
-      transform: translateY(100%); /* Caché en bas */
+      bottom: 10px; left: 10px;
+      background: rgba(255, 255, 255, 0.9);
+      border: none;
+      width: 35px; height: 35px;
+      border-radius: 50%;
+      font-size: 18px;
+      cursor: pointer; z-index: 10;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      transition: transform 0.2s;
+    }
+    .like-btn:hover { transform: scale(1.1); }
+    .heart-pop { animation: heartPop 0.4s ease; color: #ff3366; }
+    @keyframes heartPop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
+
+    /* PANNEAU DETAILS */
+    .full-details-overlay {
+      position: absolute; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.98);
+      padding: 20px; box-sizing: border-box;
+      overflow-y: auto;
+      transform: translateY(100%);
       transition: transform 0.3s ease-in-out;
-      z-index: 5;
-      text-align: left;
-      font-size: 13px;
-      color: #333;
+      z-index: 5; text-align: left; font-size: 13px; color: #333;
     }
-
-    /* La classe qu'on ajoute pour afficher le panneau */
-    .full-details-overlay.visible {
-      transform: translateY(0); /* On le remonte */
-    }
-
-    .detail-row {
-      margin-bottom: 6px;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 4px;
-    }
+    .full-details-overlay.visible { transform: translateY(0); }
+    .detail-row { margin-bottom: 6px; border-bottom: 1px solid #eee; padding-bottom: 4px; }
     .detail-label { font-weight: bold; color: #555; }
 
-    .dish.selected {
-      border-color: var(--grad2);
-      transform: scale(1.05);
-      z-index: 2;
-    }
+    /* ANIMATIONS SWIPE */
+    .dish.fly-over-left { transform: translateX(-100%) scale(1.05) rotate(-10deg); z-index: 3; }
+    .dish.fly-over-right { transform: translateX(100%) scale(1.05) rotate(10deg); z-index: 3; }
 
-    /* 🌀 Animation gagnant passe sur l’autre */
-    .dish.fly-over-left {
-      transform: translateX(-100%) scale(1.05) rotate(-10deg);
-      z-index: 3;
-    }
-    .dish.fly-over-right {
-      transform: translateX(100%) scale(1.05) rotate(10deg);
-      z-index: 3;
-    }
-
-    /* Le conteneur de l'image doit être relatif pour qu'on puisse positionner des choses dessus */
-    .dish-image-container {
-      position: relative;
-      width: 100%;
-      height: 280px;
-      border-radius: 20px;
-      overflow: hidden;
-    }
-
-    /* L'image elle-même */
-    .dish-image-container img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
+    /* UI GENERALE */
     button {
-      border: none;
-      border-radius: 14px;
+      border: none; border-radius: 14px;
       padding: 12px 20px;
-      cursor: pointer;
-      font-weight: 600;
+      cursor: pointer; font-weight: 600;
       background: linear-gradient(135deg, var(--grad1), var(--grad2));
       color: white;
       box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
@@ -201,95 +171,103 @@
     button:hover { transform: scale(1.05); }
     .secondary { background: #eee; color: #222; }
 
-    footer {
-      text-align: center;
-      color: #888;
-      margin-top: 40px;
-      font-size: 14px;
-    }
+    footer { text-align: center; color: #888; margin-top: 40px; font-size: 14px; }
 
-    /* 💖 Écran final “Match!” */
+    /* MODALES (LOGIN / FILTRES / LIKES) */
+    .filter-modal {
+      display: none; position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(5px);
+      z-index: 200;
+      justify-content: center; align-items: center;
+    }
+    .filter-content {
+      background: white; padding: 25px;
+      border-radius: 24px; width: 90%; max-width: 400px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    /* TAGS & INPUTS */
+    .tags-container { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag-checkbox input { display: none; }
+    .tag-checkbox {
+      background: #f0f0f0; padding: 8px 12px;
+      border-radius: 20px; font-size: 13px;
+      cursor: pointer; border: 2px solid transparent;
+    }
+    .tag-checkbox:has(input:checked) {
+      background: #fff0f5; border-color: #ff3366;
+      color: #ff3366; font-weight: bold;
+    }
+    .filter-actions { display: flex; gap: 10px; margin-top: 20px; }
+    .filter-actions button { flex: 1; }
+
+    /* ECRAN MATCH */
     .match-screen {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
       background: rgba(255,255,255,0.95);
       backdrop-filter: blur(8px);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      opacity: 0;
-      pointer-events: none;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100; opacity: 0; pointer-events: none;
       transition: opacity 0.5s ease;
     }
-
-    .match-screen.active {
-      opacity: 1;
-      pointer-events: all;
-    }
-
+    .match-screen.active { opacity: 1; pointer-events: all; }
     .match-screen img {
-      width: 300px;
-      height: 300px;
-      object-fit: cover;
+      width: 300px; height: 300px; object-fit: cover;
       border-radius: 20px;
       box-shadow: 0 0 40px rgba(255, 51, 102, 0.4);
       animation: pop 0.8s ease;
     }
-
     .match-screen h1 {
-      font-size: 40px;
-      color: var(--grad2);
-      margin-top: 20px;
-      font-weight: 700;
+      font-size: 40px; color: var(--grad2);
+      margin-top: 20px; font-weight: 700;
       text-align: center;
-      text-shadow: 0 0 10px rgba(255,51,102,0.3);
     }
+    @keyframes pop { 0% { transform: scale(0.2); opacity: 0; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); } }
 
-    @keyframes pop {
-      0% { transform: scale(0.2); opacity: 0; }
-      70% { transform: scale(1.1); opacity: 1; }
-      100% { transform: scale(1); }
-    }
-
-    #confetti-canvas {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 101;
-    }
-
-    /* ❌ Croix de fermeture */
-    .close-btn {
-      position: absolute;
-      top: 25px;
-      right: 25px;
-      font-size: 32px;
-      font-weight: bold;
-      color: #ff3366;
-      cursor: pointer;
-      transition: transform 0.2s ease, color 0.2s ease;
-      z-index: 102;
-    }
-    .close-btn:hover {
-      transform: scale(1.2);
-      color: #ff6a00;
-    }
+    .star-rating { font-size: 30px; color: #ccc; cursor: pointer; }
+    .star-rating span.active { color: #ffcc00; }
+    
+    #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 101; }
+    .close-btn { position: absolute; top: 25px; right: 25px; font-size: 32px; font-weight: bold; color: #ff3366; cursor: pointer; z-index: 102; }
   </style>
 </head>
 
 <body>
+
+  <div style="position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px;">
+    <span id="welcomeMsg" style="display:none; color: white; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
+    
+    <button id="myLikesBtn" style="display:none; background: #ff3366; color: white; border:none; padding: 8px 12px; border-radius: 20px; cursor:pointer; font-size:13px; margin-right:5px;">
+        ❤️ Mes Likes
+    </button>
+
+    <button id="authBtn" style="background: white; color: #333; font-size: 13px; padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border:none; cursor:pointer; font-weight:600;">
+      👤 Connexion
+    </button>
+
+    <button id="logoutBtn" style="display:none; background: rgba(0,0,0,0.5); color: white; font-size: 12px; padding: 8px 12px; border-radius: 20px; border:none; cursor:pointer;">
+      Déconnexion
+    </button>
+  </div>
+
   <header>
     <h1>Tinder Food 🍔</h1>
     <h2>Founder — PWA par Alexandre, Victor, Vadim et Galatée</h2>
   </header>
 
   <main>
+    <div style="text-align: right; margin-bottom: 10px;">
+      <button id="openFilterBtn" style="background: white; color: #333; font-size: 14px; padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+        ⚙️ Filtres
+      </button>
+    </div>
+
     <div class="card" id="chooserCard">
       <h3>Choisis ton plat préféré 🍽️</h3>
 
@@ -304,7 +282,7 @@
         </div>
       </div>
 
-      <div class="actions" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;">
+      <div class="actions" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px;justify-content:center;">
         <button id="chooseBtn">J’ai choisi ❤️</button>
         <button id="resetBtn" class="secondary">Réinitialiser</button>
       </div>
@@ -317,19 +295,128 @@
     <div>&copy; 2025 Founder – Tinder Food 🍴</div>
   </footer>
 
-  <!-- 🎉 Canvas confettis -->
-  <canvas id="confetti-canvas"></canvas>
+  <div id="filterModal" class="filter-modal">
+    <div class="filter-content">
+      <h3>🔍 Filtrer les restaurants</h3>
+      
+      <div class="filter-section">
+        <h4>Type de cuisine</h4>
+        <div class="tags-container">
+          <label class="tag-checkbox"><input type="checkbox" value="sushi"> 🍣 Sushi</label>
+          <label class="tag-checkbox"><input type="checkbox" value="pizza"> 🍕 Pizza</label>
+          <label class="tag-checkbox"><input type="checkbox" value="burger"> 🍔 Burger</label>
+          <label class="tag-checkbox"><input type="checkbox" value="indian"> 🥘 Indien</label>
+          <label class="tag-checkbox"><input type="checkbox" value="asian"> 🍜 Asiatique</label>
+          <label class="tag-checkbox"><input type="checkbox" value="french"> 🇫🇷 Français</label>
+          <label class="tag-checkbox"><input type="checkbox" value="italian"> 🇮🇹 Italien</label>
+          <label class="tag-checkbox"><input type="checkbox" value="kebab"> 🥙 Kebab</label>
+        </div>
+      </div>
 
-  <!-- 💖 Écran final "Match!" -->
+      <div class="filter-section">
+        <h4>Préférences</h4>
+        <div class="checkbox-row"><label><input type="checkbox" id="filterVeg"> 🥗 Végétarien</label></div>
+        <div class="checkbox-row"><label><input type="checkbox" id="filterDelivery"> 🛵 Livraison</label></div>
+      </div>
+
+      <div class="filter-actions">
+        <button id="applyFiltersBtn">Appliquer</button>
+        <button id="closeFilterBtn" class="secondary">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="authModal" class="filter-modal">
+    <div class="filter-content" style="text-align: center; max-width: 320px;">
+      
+      <div id="loginForm">
+          <h3 style="margin-bottom: 20px;">Connexion 🔑</h3>
+          <input type="text" id="loginUser" placeholder="Nom d'utilisateur" style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;">
+          <input type="password" id="loginPass" placeholder="Mot de passe" style="width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;">
+          
+          <button id="doLoginBtn" style="width: 100%; background: linear-gradient(135deg, #667eea, #764ba2);">Se connecter</button>
+          
+          <p style="margin-top: 15px; font-size: 13px; color: #666;">
+              Pas encore de compte ? <a href="#" onclick="toggleAuthMode()" style="color: #764ba2; font-weight: bold;">Créer un compte</a>
+          </p>
+      </div>
+
+      <div id="registerForm" style="display: none;">
+          <h3 style="margin-bottom: 20px;">Inscription 🚀</h3>
+          <input type="text" id="regUser" placeholder="Choisis un pseudo" style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;">
+          <input type="email" id="regEmail" placeholder="Ton email" style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;"> 
+          <input type="text" id="regAddress" placeholder="Ta ville (ex: Paris)" style="width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;">
+          <input type="password" id="regPass" placeholder="Mot de passe" style="width: 100%; padding: 12px; margin-bottom: 20px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box;">
+          
+          <button id="doRegisterBtn" style="width: 100%; background: #333;">S'inscrire</button>
+          
+          <p style="margin-top: 15px; font-size: 13px; color: #666;">
+              Déjà inscrit ? <a href="#" onclick="toggleAuthMode()" style="color: #333; font-weight: bold;">Se connecter</a>
+          </p>
+      </div>
+
+      <button onclick="document.getElementById('authModal').style.display='none'" class="secondary" style="margin-top: 20px; width: 100%;">Fermer</button>
+    </div>
+  </div>
+
+  <div id="reviewModal" class="filter-modal"> 
+    <div class="filter-content" style="text-align: center;">
+      <h3>Noter ce restaurant ✍️</h3>
+      <p id="reviewRestaurantName" style="color:#666; margin-bottom:15px;"></p>
+
+      <div class="star-rating">
+          <span onclick="setRating(1)">★</span>
+          <span onclick="setRating(2)">★</span>
+          <span onclick="setRating(3)">★</span>
+          <span onclick="setRating(4)">★</span>
+          <span onclick="setRating(5)">★</span>
+      </div>
+      <input type="hidden" id="selectedRating" value="5">
+
+      <textarea id="reviewComment" rows="4" placeholder="C'était comment ? (Optionnel)" 
+                style="width:100%; padding:10px; border-radius:10px; border:1px solid #ddd; margin-top:10px; font-family:inherit;"></textarea>
+
+      <div class="filter-actions">
+        <button id="sendReviewBtn" style="background:var(--grad2);">Envoyer</button>
+        <button onclick="closeReviewModal()" class="secondary">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="likesModal" class="filter-modal">
+    <div class="filter-content" style="max-width: 500px; height: 80vh; display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+          <h3 style="margin:0;">❤️ Mes Restaurants</h3>
+          <button onclick="document.getElementById('likesModal').style.display='none'" style="background:transparent; color:#333; font-size:20px; padding:0; border:none; cursor:pointer;">✖</button>
+      </div>
+      <div id="likesList" style="flex:1; overflow-y:auto; padding-right:5px;">
+          <p style="text-align:center; color:#888; margin-top:50px;">Chargement...</p>
+      </div>
+    </div>
+  </div>
+
   <div id="matchScreen" class="match-screen">
     <div class="close-btn" id="closeMatch">✖</div>
     <img id="winnerImage" src="" alt="Winner">
     <h1 id="winnerText">C’est un match !</h1>
   </div>
 
-  <!-- Confetti.js -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <canvas id="confetti-canvas"></canvas>
 
+  <div id="likesModal" class="filter-modal">
+    <div class="filter-content" style="max-width: 500px; height: 80vh; display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+          <h3 style="margin:0;">❤️ Mes Restaurants</h3>
+          <button onclick="document.getElementById('likesModal').style.display='none'" style="background:transparent; color:#333; font-size:20px; padding:0; border:none; cursor:pointer;">✖</button>
+      </div>
+      <div id="likesList" style="flex:1; overflow-y:auto; padding-right:5px;">
+          <p style="text-align:center; color:#888; margin-top:50px;">Chargement...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="app.js"></script>
+
 </body>
 </html>
