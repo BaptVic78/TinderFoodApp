@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Tinder Food 🍽️</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -235,25 +235,118 @@
     
     #confetti-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 101; }
     .close-btn { position: absolute; top: 25px; right: 25px; font-size: 32px; font-weight: bold; color: #ff3366; cursor: pointer; z-index: 102; }
+
+    /* --- STYLES GÉNÉRAUX BARRE UTILISATEUR --- */
+    .user-bar {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    .welcome-text {
+        color: white; 
+        font-weight: 600; 
+        text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .user-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    /* Boutons stylés */
+    .btn-likes { background: #ff3366; color: white; border:none; padding: 8px 12px; border-radius: 20px; cursor:pointer; font-weight:600; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .btn-auth { background: white; color: #333; padding: 8px 16px; border-radius: 20px; border:none; cursor:pointer; font-weight:600; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+    .btn-logout { background: rgba(0,0,0,0.5); color: white; padding: 8px 12px; border-radius: 20px; border:none; cursor:pointer; }
+
+
+    /* --- 📱 VERSION MOBILE (IPHONE) --- */
+    /* --- 📱 VERSION MOBILE (IPHONE) --- */
+    @media screen and (max-width: 768px) {
+
+        /* 0. Le conteneur principal (la carte blanche) */
+        .main-card {
+            width: 95% !important; /* Un peu plus large sur mobile */
+            padding: 15px 10px !important; /* Moins de marge sur les côtés pour laisser place aux photos */
+        }
+        
+        /* 1. On réorganise la barre du haut */
+        .user-bar {
+            position: relative;
+            top: 0; right: 0;
+            flex-direction: column;
+            width: 100%;
+            padding: 10px;
+            background: rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+
+        /* 2. Réduire le gros titre "Tinder Food" */
+        h1 {
+            font-size: 2rem !important;
+            margin-top: 10px !important;
+        }
+        
+        /* 3. Ajuster les images des plats (C'EST ICI QUE ÇA CHANGE) */
+        #pair {
+            gap: 8px; /* ⬅️ On réduit l'écart (était 10px) pour gagner de la largeur */
+            margin-bottom: 15px;
+        }
+        
+        .dish {
+            flex: 1; 
+        }
+
+        .dish-image-container {
+            /* ⬅️ C'EST LA LIGNE MAGIQUE : On augmente drastiquement la hauteur */
+            height: 240px; /* (Était 180px avant) */
+            
+            width: 100%;
+            border-radius: 15px; /* Des coins un peu plus arrondis */
+        }
+        
+        .dish-image-container img {
+            height: 100%;
+            width: 100%;
+            object-fit: cover;
+        }
+        
+        /* On réduit un peu la taille du texte sous l'image pour compenser */
+        .dish-desc strong { font-size: 1rem; }
+        .dish-desc span { font-size: 0.85rem; }
+
+        /* 4. Le bouton "J'ai choisi" plus visible */
+        #chooseBtn {
+            width: 100%; /* Prend toute la largeur disponible */
+            padding: 16px; /* Un peu plus épais */
+            font-size: 1.3rem;
+            margin-top: 10px;
+        }
+
+        /* 5. Cacher le sous-titre s'il prend trop de place */
+        p[style*="color: white"] {
+            font-size: 0.8rem;
+            padding: 0 10px;
+            margin-bottom: 20px;
+        }
+    }
   </style>
 </head>
 
 <body>
 
-  <div style="position: absolute; top: 20px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px;">
-    <span id="welcomeMsg" style="display:none; color: white; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.3);"></span>
+  <div class="user-bar">
+    <span id="welcomeMsg" class="welcome-text"></span>
     
-    <button id="myLikesBtn" style="display:none; background: #ff3366; color: white; border:none; padding: 8px 12px; border-radius: 20px; cursor:pointer; font-size:13px; margin-right:5px;">
-        ❤️ Mes Likes
-    </button>
-
-    <button id="authBtn" style="background: white; color: #333; font-size: 13px; padding: 8px 16px; border-radius: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); border:none; cursor:pointer; font-weight:600;">
-      👤 Connexion
-    </button>
-
-    <button id="logoutBtn" style="display:none; background: rgba(0,0,0,0.5); color: white; font-size: 12px; padding: 8px 12px; border-radius: 20px; border:none; cursor:pointer;">
-      Déconnexion
-    </button>
+    <div class="user-buttons">
+        <button id="profileBtn" class="btn-likes" style="background:#333; display:none;">⚙️ Mon Compte</button>
+        
+        <button id="myLikesBtn" class="btn-likes">❤️ Likes</button>
+        <button id="authBtn" class="btn-auth">👤 Connexion</button>
+        <button id="logoutBtn" class="btn-logout" style="display:none;">Déconnexion</button>
+    </div>
   </div>
 
   <header>
@@ -391,6 +484,31 @@
       </div>
       <div id="likesList" style="flex:1; overflow-y:auto; padding-right:5px;">
           <p style="text-align:center; color:#888; margin-top:50px;">Chargement...</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="profileModal" class="filter-modal">
+    <div class="filter-content" style="max-width: 400px;">
+      <h3>👤 Mon Profil</h3>
+      
+      <div style="margin-top:20px;">
+          <label>Nom d'utilisateur</label>
+          <input type="text" id="profileName" disabled style="width:100%; padding:10px; margin-bottom:10px; background:#eee; border:1px solid #ddd; border-radius:5px;">
+          
+          <label>Email</label>
+          <input type="email" id="profileEmail" style="width:100%; padding:10px; margin-bottom:10px; border:1px solid #ddd; border-radius:5px;">
+          
+          <label>📍 Ma Localisation (Adresse)</label>
+          <textarea id="profileAddress" rows="3" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ddd; border-radius:5px;"></textarea>
+
+          <button id="saveProfileBtn" style="width:100%; background:#ff3366; color:white; padding:12px; border:none; border-radius:30px; font-weight:bold; cursor:pointer;">
+              Enregistrer les modifications
+          </button>
+          
+          <button onclick="document.getElementById('profileModal').style.display='none'" style="width:100%; background:transparent; color:#666; margin-top:10px; border:none; cursor:pointer;">
+              Annuler
+          </button>
       </div>
     </div>
   </div>

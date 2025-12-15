@@ -1,15 +1,23 @@
-require('dotenv').config();
+// 👇 LIGNE TRES IMPORTANTE : Charge les variables du fichier .env
+require('dotenv').config(); 
 
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
-const path = require('path');
+const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
+const path = require('path');
 
 const app = express();
-
 app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
+
+// Servir les fichiers du frontend
+app.use(express.static(path.join(__dirname, '../')));
+
+// --- CONNEXION BASE DE DONNÉES (AWS) ---
+console.log("Tentative de connexion à AWS RDS...");
+console.log("Hôte :", process.env.DB_HOST); // Pour vérifier que ça lit bien le fichier
 
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
@@ -22,150 +30,156 @@ const db = mysql.createConnection({
     }
 });
 
-db.connect((err) => {
+db.connect(err => {
     if (err) {
-        console.error('Erreur de connexion à la base de données :', err);
+        console.error('❌ Erreur de connexion AWS :', err);
         return;
     }
-    console.log('Connecté à la base de données MySQL !');
+    console.log('✅ Connecté à la base de données AWS RDS !');
 });
 
-// 1. Inscription
-// 1. Inscription (Mise à jour avec Email et Adresse)
-app.post('/api/register', async (req, res) => {
-    // On récupère les nouveaux champs
-    const { username, password, email, address } = req.body;
+// ==========================
+// ROUTES API
+// ==========================
 
-    // Validation : On veut au moins un pseudo, un mdp et un email
-    if (!username || !password || !email) {
-        return res.json({ success: false, message: "Pseudo, Email et Mot de passe requis." });
-    }
-
-    try {
-        // Vérif doublon (Pseudo OU Email)
-        const [existing] = await db.promise().query(
-            "SELECT * FROM users WHERE username = ? OR email = ?", 
-            [username, email]
-        );
-        
-        if (existing.length > 0) {
-            return res.json({ success: false, message: "Ce pseudo ou cet email est déjà utilisé." });
-        }
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        // Insertion complète
-        await db.promise().query(
-            "INSERT INTO users (username, password_hash, email, address, created_at) VALUES (?, ?, ?, ?, NOW())", 
-            [username, hashedPassword, email, address]
-        );
-        
-        res.json({ success: true, message: "Compte créé ! Connecte-toi." });
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, message: "Erreur serveur" });
-    }
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../index.html'));
 });
 
-// 2. Connexion
-app.post('/api/login', async (req, res) => {
-    const { username, password } = req.body;
-
-    try {
-        const [users] = await db.promise().query("SELECT * FROM users WHERE username = ?", [username]);
-        
-        if (users.length === 0) {
-            return res.json({ success: false, message: "Utilisateur inconnu" });
-        }
-
-        const user = users[0];
-
-        // Comparaison avec 'password_hash'
-        const match = await bcrypt.compare(password, user.password_hash);
-
-        if (match) {
-            res.json({ 
-                success: true, 
-                user: { id: user.user_id, name: user.username } 
-            });
-        } else {
-            res.json({ success: false, message: "Mot de passe incorrect" });
-        }
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ success: false, message: "Erreur serveur" });
-    }
-});
-
+// 1. RÉCUPÉRER LES RESTAURANTS
 app.get('/api/dishes', (req, res) => {
-    // 1. La requête SQL adaptée à ta table 'restaurants'
-    // On sélectionne le nom, le type de nourriture et l'url de la photo
-    // On ajoute "WHERE photo_url IS NOT NULL" pour éviter les bugs d'affichage si un resto n'a pas de photo
-    const sql = "SELECT * FROM restaurants WHERE photo_url IS NOT NULL"; 
-    
+    // Attention : Vérifie le nom de ta table sur AWS. Est-ce 'restaurants' ou autre chose ?
+    const sql = "SELECT * FROM restaurants LIMIT 500"; 
     db.query(sql, (err, results) => {
         if (err) {
-            console.error("Erreur SQL :", err);
-            return res.status(500).send("Erreur serveur");
+            console.error(err);
+            return res.status(500).json({ error: "Erreur SQL" });
         }
         res.json(results);
     });
 });
 
-app.use(express.static(path.join(__dirname, '../')));
+// 2. INSCRIPTION
+app.post('/api/register', async (req, res) => {
+    const { username, password, email, address } = req.body;
+    if (!username || !password || !email) return res.json({ success: false, message: "Manquant" });
 
-app.get('/', (req, res) => {
-    // On remonte d'un dossier pour trouver index.html
-    res.sendFile(path.join(__dirname, '../index.html'));
+    try {
+        const [existing] = await db.promise().query("SELECT * FROM users WHERE username = ?", [username]);
+        if (existing.length > 0) return res.json({ success: false, message: "Pseudo pris" });
+
+        const hash = await bcrypt.hash(password, 10);
+        await db.promise().query(
+            "INSERT INTO users (username, password_hash, email, address, created_at) VALUES (?, ?, ?, ?, NOW())", 
+            [username, hash, email, address]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false });
+    }
 });
 
-// Route pour ajouter un avis
-app.post('/api/review', (req, res) => {
-    const { restaurant_id, rating, comment } = req.body;
+// 3. CONNEXION
+app.post('/api/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const [users] = await db.promise().query("SELECT * FROM users WHERE username = ?", [username]);
+        if (users.length === 0) return res.json({ success: false, message: "Inconnu" });
 
-    // Pour l'instant, on met un user_id arbitraire (ex: 1) car tu n'as pas de système de login
-    const user_id = 1; 
-
-    const sql = `
-        INSERT INTO reviews (user_id, restaurant_id, rating, comment, review_time)
-        VALUES (?, ?, ?, ?, NOW())
-    `;
-
-    db.query(sql, [user_id, restaurant_id, rating, comment], (err, result) => {
-        if (err) {
-            console.error("Erreur insertion review :", err);
-            return res.status(500).json({ error: "Erreur lors de l'enregistrement" });
+        const user = users[0];
+        const match = await bcrypt.compare(password, user.password_hash);
+        
+        // IMPORTANT : On vérifie bien les noms de colonnes (user_id vs id)
+        // Dans app.post('/api/login' ...)
+        if (match) {
+            // On renvoie TOUTES les infos utiles (email, address...)
+            res.json({ 
+                success: true, 
+                user: { 
+                    id: user.user_id, 
+                    name: user.username,
+                    email: user.email,      // Ajouté
+                    address: user.address   // Ajouté
+                } 
+            });
+        } else {
+            res.json({ success: false, message: "Mauvais mot de passe" });
         }
-        res.json({ success: true, message: "Avis enregistré !" });
+    } catch (err) { console.error(err); res.status(500).json({ success: false }); }
+});
+
+// 4. SWIPE
+app.post('/api/swipe', (req, res) => {
+    const { user_id, restaurant_id } = req.body;
+    const sql = "INSERT INTO swipes (user_id, restaurant_id, swipe_time) VALUES (?, ?, NOW())";
+    db.query(sql, [user_id, restaurant_id], (err) => {
+        if (err) return res.json({ success: false });
+        res.json({ success: true });
     });
 });
 
-// Enregistrer un Swipe (Uniquement le gagnant)
-app.post('/api/swipe', (req, res) => {
+// 5. LIKE
+app.post('/api/like', (req, res) => {
     const { user_id, restaurant_id } = req.body;
+    const sql = "INSERT IGNORE INTO likes (user_id, restaurant_id) VALUES (?, ?)";
+    db.query(sql, [user_id, restaurant_id], (err) => {
+        if (err) return res.status(500).json({ success: false });
+        res.json({ success: true });
+    });
+});
 
-    if (!user_id || !restaurant_id) {
-        return res.json({ success: false, message: "Données manquantes" });
-    }
+// 6. RÉCUPÉRER MES LIKES
+app.get('/api/likes', (req, res) => {
+    const userId = req.query.user_id;
+    if (!userId) return res.json([]);
 
-    // ON A RETIRÉ 'type_swipe' et 'like' DE LA REQUÊTE
+    // On suppose que sur AWS tes tables sont bien 'restaurants' et 'likes'
+    // Et que la colonne ID est 'restaurant_id'
     const sql = `
-        INSERT IGNORE INTO swipes (user_id, restaurant_id, swipe_time) 
-        VALUES (?, ?, NOW())
+        SELECT r.* FROM restaurants r
+        JOIN likes l ON r.restaurant_id = l.restaurant_id
+        WHERE l.user_id = ?
+        ORDER BY l.created_at DESC
     `;
 
-    db.query(sql, [user_id, restaurant_id], (err, result) => {
+    db.query(sql, [userId], (err, results) => {
         if (err) {
-            console.error("Erreur swipe :", err);
-            // On ne renvoie pas d'erreur 500 pour ne pas bloquer le jeu, juste un log
-            return res.status(200).json({ success: false });
+            console.error("❌ Erreur SQL Likes :", err.message);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(results);
+    });
+});
+
+// 7. AVIS
+app.post('/api/review', (req, res) => {
+    const { user_id, restaurant_id, rating, comment } = req.body;
+    const sql = "INSERT INTO reviews (user_id, restaurant_id, rating, comment, review_time) VALUES (?, ?, ?, ?, NOW())";
+    db.query(sql, [user_id, restaurant_id, rating, comment], (err) => {
+        if (err) return res.status(500).json({ success: false });
+        res.json({ success: true });
+    });
+});
+
+// 8. METTRE À JOUR LE PROFIL (AVEC GPS)
+app.put('/api/user/update', (req, res) => {
+    // On reçoit maintenant latitude et longitude en plus
+    const { user_id, email, address, latitude, longitude } = req.body;
+    console.log(`📍 Update User ${user_id}: ${address} (${latitude}, ${longitude})`);
+
+    const sql = "UPDATE users SET email = ?, address = ?, latitude = ?, longitude = ? WHERE user_id = ?";
+    
+    db.query(sql, [email, address, latitude, longitude, user_id], (err, result) => {
+        if (err) {
+            console.error("❌ Erreur update user :", err);
+            return res.status(500).json({ success: false, message: "Erreur serveur" });
         }
         res.json({ success: true });
     });
 });
 
+// Lancement
 app.listen(3000, () => {
     console.log('🚀 Serveur démarré sur http://localhost:3000');
 });

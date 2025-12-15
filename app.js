@@ -1,6 +1,5 @@
 // =======================
-// Tinder Food — app.js (VERSION MASTER)
-// Contient : Jeu, Auth, Filtres, Swipe, Avis, Infos
+// Tinder Food — app.js (VERSION CORRIGÉE AVEC LIKES)
 // =======================
 
 // --- SÉLECTEURS DU DOM (JEU) ---
@@ -34,8 +33,13 @@ const loginUser = document.getElementById("loginUser");
 const loginPass = document.getElementById("loginPass");
 const regUser = document.getElementById("regUser");
 const regPass = document.getElementById("regPass");
-const regEmail = document.getElementById("regEmail");     
-const regAddress = document.getElementById("regAddress"); 
+const regEmail = document.getElementById("regEmail");
+const regAddress = document.getElementById("regAddress");
+
+// --- SÉLECTEURS (LIKES) [C'était manquant !] ---
+const myLikesBtn = document.getElementById("myLikesBtn");
+const likesModal = document.getElementById("likesModal");
+const likesList = document.getElementById("likesList");
 
 // --- SÉLECTEURS (AVIS) ---
 const reviewModal = document.getElementById("reviewModal");
@@ -46,8 +50,8 @@ const stars = document.querySelectorAll(".star-rating span");
 const sendReviewBtn = document.getElementById("sendReviewBtn");
 
 // --- VARIABLES GLOBALES ---
-let ALL_RESTAURANTS = []; // La base complète (pour les filtres)
-let IMAGES = [];          // La liste courante (filtrée)
+let ALL_RESTAURANTS = [];
+let IMAGES = [];
 let champion;
 let challenger;
 let nextIndex = 2;
@@ -55,22 +59,63 @@ let finished = false;
 let currentUser = null;
 
 // =======================
-// 1. INITIALISATION
+// 1. INITIALISATION (AVEC GÉOLOCALISATION)
 // =======================
 async function initGame() {
   try {
     checkSession();
     progressEl.textContent = "Chargement des restaurants...";
     
-    // On récupère TOUT le monde
+    // 1. On récupère les données
     const response = await fetch('/api/dishes'); 
     const rawData = await response.json();
     
-    // On sauvegarde la liste complète pour pouvoir filtrer plus tard
-    ALL_RESTAURANTS = rawData.sort(() => Math.random() - 0.5);
+    // 2. On demande la position GPS
+    if (navigator.geolocation) {
+        progressEl.textContent = "Géolocalisation en cours...";
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                // SUCCÈS : L'utilisateur a accepté
+                const myLat = position.coords.latitude;
+                const myLon = position.coords.longitude;
+                
+                console.log("📍 Ma position :", myLat, myLon);
 
-    // Au démarrage, on applique les filtres par défaut (càd aucun filtre = tout le monde)
-    applyFilters(); 
+                // On calcule la distance pour chaque resto
+                ALL_RESTAURANTS = rawData.map(resto => {
+                    // 👇 C'EST ICI QU'ON CHANGE : On utilise .LAT et .LON
+                    // (J'ajoute une sécurité pour accepter LAT, Lat ou lat par précaution)
+                    const rLat = resto.LAT || resto.Lat || resto.lat;
+                    const rLon = resto.LON || resto.Lon || resto.lon;
+
+                    const dist = getDistanceFromLatLonInKm(myLat, myLon, rLat, rLon);
+                    
+                    return { ...resto, distance: dist }; 
+                });
+
+                // On trie du plus proche au plus loin
+                ALL_RESTAURANTS.sort((a, b) => {
+                    if (!a.distance) return 1;
+                    if (!b.distance) return -1;
+                    return a.distance - b.distance;
+                });
+
+                progressEl.textContent = "Restaurants triés par proximité !";
+                applyFilters();
+            },
+            (error) => {
+                // ERREUR ou REFUS : On mélange au hasard
+                console.warn("Géolocalisation refusée ou erreur :", error.message);
+                ALL_RESTAURANTS = rawData.sort(() => Math.random() - 0.5);
+                applyFilters();
+            }
+        );
+    } else {
+        // Pas de support GPS (vieux navigateur)
+        ALL_RESTAURANTS = rawData.sort(() => Math.random() - 0.5);
+        applyFilters();
+    }
 
   } catch (error) {
     console.error(error);
@@ -82,18 +127,14 @@ async function initGame() {
 // 2. GESTION DES FILTRES
 // =======================
 function applyFilters() {
-    // A. Récupérer les valeurs des inputs
     const filterVeg = document.getElementById("filterVeg");
     const filterDelivery = document.getElementById("filterDelivery");
     
-    // Sécurité si les éléments HTML n'existent pas encore
     const isVeg = filterVeg ? filterVeg.checked : false;
     const isDelivery = filterDelivery ? filterDelivery.checked : false;
     
-    // Récupérer les types de cuisine cochés
     const checkedTypes = Array.from(document.querySelectorAll('.tag-checkbox input:checked')).map(cb => cb.value);
 
-    // B. Filtrer ALL_RESTAURANTS
     IMAGES = ALL_RESTAURANTS.filter(resto => {
         if (isVeg && !isTrue(resto.Vegetarian)) return false;
         if (isDelivery && !isTrue(resto.Delivery)) return false;
@@ -108,7 +149,6 @@ function applyFilters() {
 
     console.log(`${IMAGES.length} restaurants après filtrage.`);
     
-    // C. Reset du jeu
     if (filterModal) filterModal.style.display = "none";
 
     if (IMAGES.length < 2) {
@@ -125,7 +165,6 @@ function applyFilters() {
     showImages();
 }
 
-// Écouteurs Filtres
 if (openFilterBtn) openFilterBtn.addEventListener("click", () => filterModal.style.display = "flex");
 if (closeFilterBtn) closeFilterBtn.addEventListener("click", () => filterModal.style.display = "none");
 if (applyFiltersBtn) applyFiltersBtn.addEventListener("click", applyFilters);
@@ -182,6 +221,8 @@ function showImages() {
       <div class="dish-desc">
           <strong>${resto.name}</strong><br>
           <span style="color:#666">${resto.Food}</span>
+          
+          ${resto.distance ? `<br><span style="color:#ff3366; font-weight:bold; font-size:0.8em;">📍 à ${resto.distance} km</span>` : ''}
       </div>
   `;
 
@@ -200,19 +241,15 @@ function toggleDetails(side, event) {
 // 4. LOGIQUE JEU & SWIPE
 // =======================
 
-// Fonction déclenchée par le petit cœur
+// Clic sur le petit cœur
 async function addToFavorites(side, event) {
-    // 1. Stop la propagation (pour ne PAS déclencher le swipe/vote)
     if (event) {
         event.stopPropagation();
-        
-        // Petit effet visuel immédiat (le cœur devient rouge)
         const btn = event.currentTarget;
         btn.innerHTML = "❤️"; 
         btn.classList.add("heart-pop");
     }
 
-    // 2. Sécurité
     if (!currentUser) {
         alert("🔒 Connecte-toi pour sauvegarder tes favoris !");
         authModal.style.display = "flex";
@@ -221,9 +258,8 @@ async function addToFavorites(side, event) {
 
     const restoToSave = side === "left" ? champion : challenger;
 
-    // 3. Appel API vers /api/like (Table LIKES)
     try {
-        const response = await fetch('/api/like', {
+        await fetch('/api/like', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -231,15 +267,11 @@ async function addToFavorites(side, event) {
                 restaurant_id: restoToSave.restaurant_id || restoToSave.id
             })
         });
-        // Pas besoin d'alerte intrusive, le cœur rouge suffit visuellement
         console.log("Ajouté aux favoris !");
-    } catch (e) {
-        console.error(e);
-    }
+    } catch (e) { console.error(e); }
 }
 
 function animateChoice(side) {
-  // SÉCURITÉ AUTH
   if (!currentUser) {
       alert("🔒 Connecte-toi pour commencer à jouer !");
       if(authModal) authModal.style.display = "flex";
@@ -248,7 +280,7 @@ function animateChoice(side) {
 
   const chosenResto = side === "left" ? champion : challenger;
 
-  // ENVOI SWIPE (DB)
+  // Envoi Swipe
   fetch('/api/swipe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -258,7 +290,6 @@ function animateChoice(side) {
       })
   }).catch(err => console.error(err));
 
-  // ANIMATION
   const chosenEl = document.querySelector(`.dish[data-side="${side}"]`);
   chosenEl.classList.add(side === "left" ? "fly-over-right" : "fly-over-left");
 
@@ -286,7 +317,7 @@ function endTournament() {
 }
 
 // =======================
-// 5. AUTHENTIFICATION
+// 5. AUTHENTIFICATION & UPDATE UI
 // =======================
 function checkSession() {
     const savedUser = localStorage.getItem("tinderFoodUser");
@@ -296,17 +327,36 @@ function checkSession() {
     }
 }
 
+// C'est ICI que tu avais oublié la logique pour afficher le bouton Mes Likes
 function updateUI() {
+    // On récupère le bouton profil ici pour être sûr
+    const profileBtn = document.getElementById("profileBtn");
+
     if (currentUser) {
-        authBtn.style.display = "none";
-        welcomeMsg.style.display = "block";
-        welcomeMsg.textContent = `Bonjour ${currentUser.name}`;
-        logoutBtn.style.display = "block";
-        authModal.style.display = "none";
+        // --- MODE CONNECTÉ ---
+        if(authBtn) authBtn.style.display = "none";
+        if(welcomeMsg) {
+            welcomeMsg.style.display = "block";
+            welcomeMsg.textContent = `Bonjour ${currentUser.name}`;
+        }
+        if(logoutBtn) logoutBtn.style.display = "block";
+        if(authModal) authModal.style.display = "none";
+        
+        // AFFICHER le bouton Likes
+        if(myLikesBtn) myLikesBtn.style.display = "block";
+
+        // 👇 AFFICHER LE BOUTON PROFIL (C'est la ligne qui manquait) 👇
+        if(profileBtn) profileBtn.style.display = "block"; 
+        
     } else {
-        authBtn.style.display = "block";
-        welcomeMsg.style.display = "none";
-        logoutBtn.style.display = "none";
+        // --- MODE DÉCONNECTÉ ---
+        if(authBtn) authBtn.style.display = "block";
+        if(welcomeMsg) welcomeMsg.style.display = "none";
+        if(logoutBtn) logoutBtn.style.display = "none";
+        
+        // CACHER les boutons privés
+        if(myLikesBtn) myLikesBtn.style.display = "none";
+        if(profileBtn) profileBtn.style.display = "none"; // 👇 Et on le cache ici
     }
 }
 
@@ -381,7 +431,6 @@ function showMatchScreen() {
   winnerImage.src = champion.photo_url;
   winnerText.innerHTML = `C’est un match avec <br><span style="color:#ff3366;">${champion.name}</span> !`;
   
-  // Ajout Bouton Avis
   let actionContainer = document.getElementById("matchActions");
   if (!actionContainer) {
       actionContainer = document.createElement("div");
@@ -457,7 +506,6 @@ if(closeMatch) closeMatch.addEventListener("click", () => {
   location.reload(); 
 });
 
-// Clic sur l'image = Vote (si pas sur infos)
 document.querySelector('.dish[data-side="left"]').addEventListener('click', () => { if (!finished) animateChoice('left'); });
 document.querySelector('.dish[data-side="right"]').addEventListener('click', () => { if (!finished) animateChoice('right'); });
 
@@ -473,34 +521,21 @@ pair.addEventListener("touchend", e => {
   startX = null;
 });
 
-// Coup de Foudre (si présent)
-const superLikeBtn = document.getElementById("superLikeBtn");
-if (superLikeBtn) {
-    superLikeBtn.addEventListener("click", () => {
-        if (!currentUser) {
-            alert("🔒 Connecte-toi !");
-            authModal.style.display = "flex";
-            return;
-        }
-        if(!finished) endTournament();
-    });
-}
-
-// GESTION DU BOUTON "J'AI CHOISI ❤️"
+// GESTION DU BOUTON "J'AI CHOISI ❤️" (Sauvegarde en BDD)
 if (chooseBtn) {
-    chooseBtn.addEventListener("click", () => {
-        // 1. Sécurité : Est-ce qu'on est connecté ?
+    // Clone pour nettoyer les anciens écouteurs
+    const newBtn = chooseBtn.cloneNode(true);
+    chooseBtn.parentNode.replaceChild(newBtn, chooseBtn);
+
+    newBtn.addEventListener("click", async () => {
         if (!currentUser) {
             alert("🔒 Connecte-toi pour valider ton choix !");
             if(authModal) authModal.style.display = "flex";
             return;
         }
 
-        // 2. On récupère le gagnant (C'est toujours le Champion, à gauche)
         const winner = champion;
-
-        // 3. On sauvegarde dans la base de données (Table SWIPES ou LIKES)
-        // Ici j'utilise /api/swipe comme pour les clics sur l'image
+        // On enregistre le swipe final
         fetch('/api/swipe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -508,15 +543,237 @@ if (chooseBtn) {
                 user_id: currentUser.id,
                 restaurant_id: winner.restaurant_id || winner.id
             })
-        }).then(() => {
-            console.log("Choix final enregistré !");
-        }).catch(err => console.error("Erreur sauvegarde :", err));
+        }).catch(err => console.error(err));
 
-        // 4. On termine le jeu (Affichage écran de fin)
         endTournament();
     });
 }
+
 if(resetBtn) resetBtn.addEventListener("click", () => location.reload());
 
-// Lancement
+// =======================
+// 8. LOGIQUE DU BOUTON "MES LIKES" (C'est ce qu'il te manquait !)
+// =======================
+if (myLikesBtn) {
+    myLikesBtn.addEventListener("click", async () => {
+        if (!currentUser) return;
+
+        // On ouvre la fenêtre
+        likesModal.style.display = "flex";
+        likesList.innerHTML = '<p style="text-align:center; margin-top:20px;">Chargement...</p>';
+
+        try {
+            const res = await fetch(`/api/likes?user_id=${currentUser.id}`);
+            const likes = await res.json();
+
+            if (likes.length === 0) {
+                likesList.innerHTML = '<p style="text-align:center; color:#666; margin-top:40px;">Aucun like pour le moment.</p>';
+                return;
+            }
+
+            // Génération de la liste
+            likesList.innerHTML = likes.map(resto => `
+                <div style="display:flex; align-items:center; gap:15px; border-bottom:1px solid #eee; padding:15px 0;">
+                    <img src="${resto.photo_url}" style="width:60px; height:60px; object-fit:cover; border-radius:10px;">
+                    <div style="flex:1;">
+                        <strong style="font-size:14px;">${resto.name}</strong><br>
+                        <span style="font-size:12px; color:#666;">${resto.Food}</span>
+                    </div>
+                    <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(resto.name + " " + (resto.Zipcode||"") + " Paris")}" 
+                       target="_blank" style="text-decoration:none; font-size:20px;">📍</a>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error("Erreur JS :", error);
+            likesList.innerHTML = '<p style="color:red; text-align:center;">Erreur de chargement (voir console).</p>';
+        }
+    });
+}
+
+// =======================
+// 9. GESTION DU PROFIL
+// =======================
+const profileBtn = document.getElementById("profileBtn");
+const profileModal = document.getElementById("profileModal");
+const profileName = document.getElementById("profileName");
+const profileEmail = document.getElementById("profileEmail");
+const profileAddress = document.getElementById("profileAddress");
+const saveProfileBtn = document.getElementById("saveProfileBtn");
+
+// Afficher le bouton profil seulement si connecté (modifier updateUI)
+// ⚠️ IMPORTANT : Cherche ta fonction updateUI() existante et ajoute ces lignes dedans :
+/*
+function updateUI() {
+    if (currentUser) {
+        // ... tes lignes existantes ...
+        if(profileBtn) profileBtn.style.display = "block"; // AFFICHER
+    } else {
+        // ... tes lignes existantes ...
+        if(profileBtn) profileBtn.style.display = "none"; // CACHER
+    }
+}
+*/
+
+// Ouvrir la modale et pré-remplir les infos
+if (profileBtn) {
+    profileBtn.addEventListener("click", () => {
+        if (!currentUser) return;
+        
+        profileModal.style.display = "flex";
+        
+        // On remplit les champs avec les infos actuelles
+        profileName.value = currentUser.name || currentUser.username;
+        // Attention : si ton login ne renvoie pas l'email/adresse au début,
+        // il faudra peut-être les stocker dans currentUser lors du login.
+        // Pour l'instant, supposons qu'ils y sont ou qu'on les laisse vides à compléter.
+        profileEmail.value = currentUser.email || "";
+        profileAddress.value = currentUser.address || "";
+    });
+}
+
+// =======================
+// FONCTION UTILITAIRE : RE-CALCULER ET TRIER
+// =======================
+// Cette fonction met à jour les distances de tous les restos par rapport à une nouvelle position
+function recalculateDistancesAndSort(lat, lon) {
+    if (!lat || !lon) return;
+
+    console.log("🔄 Recalcul des distances depuis :", lat, lon);
+
+    ALL_RESTAURANTS = ALL_RESTAURANTS.map((resto, index) => {
+        // On récupère les coordonnées (toutes les écritures possibles)
+        const rLat = parseFloat(resto.LAT || resto.Lat || resto.lat || resto.latitude);
+        const rLon = parseFloat(resto.LON || resto.Lon || resto.lon || resto.longitude);
+        
+        // --- 🕵️ L'ESPION EST ICI ---
+        // On affiche les infos du TOUT PREMIER restaurant seulement pour ne pas spammer
+        if (index === 0) {
+            console.log("🕵️ TEST RESTO #1 :", resto.name);
+            console.log("   👉 Latitude trouvée :", rLat);
+            console.log("   👉 Longitude trouvée :", rLon);
+            console.log("   👉 Données brutes :", resto);
+        }
+        // ---------------------------
+
+        if (isNaN(rLat) || isNaN(rLon)) {
+            return { ...resto, distance: 99999 }; // Distance infinie si pas de coordonnées
+        }
+
+        const dist = getDistanceFromLatLonInKm(lat, lon, rLat, rLon);
+        return { ...resto, distance: dist }; 
+    });
+
+    // Tri du plus proche au plus loin
+    ALL_RESTAURANTS.sort((a, b) => {
+        return a.distance - b.distance;
+    });
+
+    applyFilters();
+}
+
+// =======================
+// BLOC DE SAUVEGARDE 
+// =======================
+if (saveProfileBtn) {
+    saveProfileBtn.addEventListener("click", async () => {
+        const newEmail = profileEmail.value;
+        const newAddress = profileAddress.value;
+        
+        // On sauvegarde le texte du bouton pour le remettre après
+        const btnOriginalText = saveProfileBtn.textContent;
+
+        try {
+            // 1. Feedback visuel : On montre qu'on cherche
+            saveProfileBtn.textContent = "🔍 Recherche GPS...";
+            saveProfileBtn.disabled = true; // On empêche de cliquer 2 fois
+
+            // 2. GÉOCODAGE : On demande à OpenStreetMap les coordonnées
+            // encodeURIComponent permet de gérer les espaces et accents dans l'URL
+            const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newAddress)}`);
+            const geoData = await geoRes.json();
+
+            let newLat = null;
+            let newLon = null;
+
+            // Si OpenStreetMap a trouvé quelque chose
+            if (geoData && geoData.length > 0) {
+                newLat = parseFloat(geoData[0].lat);
+                newLon = parseFloat(geoData[0].lon);
+                console.log("✅ Adresse trouvée :", newLat, newLon);
+            } else {
+                alert("⚠️ Adresse introuvable sur la carte. L'adresse texte sera sauvegardée, mais sans localisation précise.");
+            }
+
+            // 3. ENVOI AU SERVEUR (BACKEND)
+            const res = await fetch('/api/user/update', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: currentUser.id || currentUser.user_id,
+                    email: newEmail,
+                    address: newAddress,
+                    latitude: newLat,   // On ajoute ça !
+                    longitude: newLon   // Et ça !
+                })
+            });
+            
+            const data = await res.json();
+            
+            if (data.success) {
+                alert("Profil mis à jour ! 📍");
+                
+                // 4. MISE À JOUR LOCALE (SESSION)
+                currentUser.email = newEmail;
+                currentUser.address = newAddress;
+                currentUser.latitude = newLat;
+                currentUser.longitude = newLon;
+                
+                localStorage.setItem("tinderFoodUser", JSON.stringify(currentUser));
+                
+                // 5. ACTION MAGIQUE : ON RE-TRIE LES RESTOS TOUT DE SUITE
+                if (newLat && newLon) {
+                    recalculateDistancesAndSort(newLat, newLon);
+                }
+                
+                // On ferme la modale
+                profileModal.style.display = "none";
+            } else {
+                alert("Erreur serveur : " + data.message);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Erreur de connexion. Vérifiez votre internet.");
+        } finally {
+            // Quoi qu'il arrive, on remet le bouton normal
+            saveProfileBtn.textContent = btnOriginalText;
+            saveProfileBtn.disabled = false;
+        }
+    });
+}
+
+// Lancement    
 initGame();
+
+
+// =======================
+// UTILITAIRE : CALCUL DISTANCE (Haversine)
+// =======================
+function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  
+  const R = 6371; // Rayon de la terre en km
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance en km
+  return d.toFixed(1); // On garde 1 chiffre après la virgule (ex: 2.4 km)
+}
+
+function deg2rad(deg) {
+  return deg * (Math.PI / 180);
+}
